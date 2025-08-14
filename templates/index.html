@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能政策咨询系统</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .chat-container {
+            width: 90%;
+            max-width: 800px;
+            height: 80vh;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+
+        .chat-header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .chat-header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .status-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #4CAF50;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message.assistant {
+            justify-content: flex-start;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 15px 20px;
+            border-radius: 20px;
+            position: relative;
+            word-wrap: break-word;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+
+        .message.assistant .message-content {
+            background: white;
+            color: #333;
+            border: 1px solid #e9ecef;
+            border-bottom-left-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .message-time {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-top: 5px;
+            text-align: right;
+        }
+
+        .message.assistant .message-time {
+            text-align: left;
+        }
+
+        .chat-input-container {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .chat-input-wrapper {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        .chat-input:focus {
+            border-color: #667eea;
+        }
+
+        .send-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s ease;
+        }
+
+        .send-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .send-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .typing-indicator {
+            display: none;
+            padding: 15px 20px;
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .typing-indicator.show {
+            display: block;
+        }
+
+        .welcome-message {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+        }
+
+        .welcome-message h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .welcome-message p {
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+
+        .source-info {
+            font-size: 12px;
+            color: #666;
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 3px solid #667eea;
+        }
+        
+        .source-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+        
+        .source-item:hover {
+            background: #f0f8ff;
+            border-color: #667eea;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+        }
+        
+        .source-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .source-btn {
+            padding: 4px 8px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .source-btn.view {
+            background: #667eea;
+            color: white;
+        }
+        
+        .source-btn.view:hover {
+            background: #5a6fd8;
+            transform: translateY(-1px);
+        }
+        
+        .source-btn.link {
+            background: #28a745;
+            color: white;
+        }
+        
+        .source-btn.link:hover {
+            background: #218838;
+            transform: translateY(-1px);
+        }
+        
+        .source-btn.link.main {
+            background: #6f42c1;
+        }
+        
+        .source-btn.link.main:hover {
+            background: #5a32a3;
+        }
+        
+        .source-btn.disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .source-title {
+            font-weight: 600;
+            color: #333;
+            flex: 1;
+        }
+        
+        .source-preview {
+            color: #666;
+            font-size: 11px;
+            margin-top: 3px;
+            line-height: 1.4;
+        }
+        
+        .source-icon {
+            color: #667eea;
+            font-size: 16px;
+            margin-left: 10px;
+        }
+        
+        .source-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .source-modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 15px;
+            width: 80%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        
+        .source-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .source-modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .source-modal-close {
+            color: #aaa;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+        
+        .source-modal-close:hover {
+            color: #333;
+            background: #f0f0f0;
+        }
+        
+        .source-modal-body {
+            line-height: 1.6;
+            color: #444;
+            font-size: 14px;
+        }
+        
+        .source-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 4px solid #f44336;
+        }
+
+        @media (max-width: 768px) {
+            .chat-container {
+                width: 95%;
+                height: 90vh;
+            }
+            
+            .message-content {
+                max-width: 85%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="status-indicator"></div>
+            <h1>🤖 智能政策咨询系统</h1>
+            <p>您的专业政策咨询助手</p>
+        </div>
+        
+        <div class="chat-messages" id="chatMessages">
+            <div class="welcome-message">
+                <h3>👋 欢迎使用智能政策咨询系统！</h3>
+                <p>我可以帮您了解各种大学政策规定，包括：</p>
+                <p>• 奖学金管理办法</p>
+                <p>• 学生资助工作实施细则</p>
+                <p>• 转专业管理办法</p>
+                <p>请直接输入您的问题，我会为您提供专业的解答！</p>
+            </div>
+        </div>
+        
+        <div class="typing-indicator" id="typingIndicator">
+            AI正在思考中...
+        </div>
+        
+        <div class="chat-input-container">
+            <div class="chat-input-wrapper">
+                <input type="text" 
+                       class="chat-input" 
+                       id="chatInput" 
+                       placeholder="请输入您的问题..."
+                       maxlength="500">
+                <button class="send-button" id="sendButton" onclick="sendMessage()">
+                    发送
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 参考来源模态框 -->
+    <div id="sourceModal" class="source-modal">
+        <div class="source-modal-content">
+            <div class="source-modal-header">
+                <div class="source-modal-title">📚 政策文档详情</div>
+                <span class="source-modal-close" onclick="closeSourceModal()">&times;</span>
+            </div>
+            <div class="source-modal-body" id="sourceModalBody">
+                <!-- 内容将通过JavaScript动态填充 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化Socket.IO
+        const socket = io();
+        let currentConversationId = null;
+
+        // DOM元素
+        const chatMessages = document.getElementById('chatMessages');
+        const chatInput = document.getElementById('chatInput');
+        const sendButton = document.getElementById('sendButton');
+        const typingIndicator = document.getElementById('typingIndicator');
+
+        // Socket.IO事件处理
+        socket.on('connect', function() {
+            console.log('已连接到服务器');
+            createNewConversation();
+        });
+
+        socket.on('disconnect', function() {
+            console.log('与服务器断开连接');
+        });
+
+        socket.on('chat_response', function(data) {
+            hideTypingIndicator();
+            if (data.status === 'success') {
+                addMessage('assistant', data.response, data.timestamp, data.sources);
+            } else {
+                addErrorMessage(data.response);
+            }
+        });
+
+        socket.on('error', function(data) {
+            hideTypingIndicator();
+            addErrorMessage(data.message);
+        });
+
+        // 创建新对话
+        function createNewConversation() {
+            fetch('/api/conversations', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                currentConversationId = data.conversation_id;
+                socket.emit('join_room', { room: currentConversationId });
+            })
+            .catch(error => {
+                console.error('创建对话失败:', error);
+            });
+        }
+
+        // 发送消息
+        function sendMessage() {
+            const message = chatInput.value.trim();
+            if (!message) return;
+
+            // 添加用户消息
+            addMessage('user', message, new Date().toISOString());
+            
+            // 清空输入框
+            chatInput.value = '';
+            
+            // 显示输入指示器
+            showTypingIndicator();
+            
+            // 发送到服务器
+            if (currentConversationId) {
+                socket.emit('chat_message', {
+                    message: message,
+                    conversation_id: currentConversationId
+                });
+            }
+        }
+
+        // 添加消息到聊天界面
+        function addMessage(role, content, timestamp, sources = null) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            
+            const time = new Date(timestamp).toLocaleTimeString('zh-CN', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            let messageHTML = `
+                <div class="message-content">
+                    ${content}
+                    <div class="message-time">${time}</div>
+            `;
+            
+            if (sources && sources.length > 0) {
+                messageHTML += `
+                    <div class="source-info">
+                        <div class="source-badge">📚 参考来源 (${sources.length})</div>
+                `;
+                
+                sources.forEach((source, index) => {
+                    messageHTML += `
+                        <div class="source-item">
+                            <div>
+                                <div class="source-title">${source.title || '未知文档'}</div>
+                                <div class="source-preview">${source.content || '暂无预览'}</div>
+                            </div>
+                            <div class="source-actions">
+                                <button class="source-btn view" onclick="showSourceDetail(${index}, ${JSON.stringify(source).replace(/"/g, '&quot;')})">
+                                    👁️ 查看
+                                </button>
+                                ${source.links && source.links.length > 0 ? 
+                                    source.links.map(link => 
+                                        `<a href="${link.url}" target="_blank" class="source-btn link ${link.type}" title="${link.description || ''}">🔗 ${link.name}</a>`
+                                    ).join('') : 
+                                    '<span class="source-btn disabled" style="opacity: 0.5; cursor: not-allowed;">🔗 暂无链接</span>'
+                                }
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                messageHTML += '</div>';
+            }
+            
+            messageHTML += '</div>';
+            messageDiv.innerHTML = messageHTML;
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // 添加错误消息
+        function addErrorMessage(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = message;
+            chatMessages.appendChild(errorDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // 显示输入指示器
+        function showTypingIndicator() {
+            typingIndicator.classList.add('show');
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // 隐藏输入指示器
+        function hideTypingIndicator() {
+            typingIndicator.classList.remove('show');
+        }
+
+        // 键盘事件处理
+        chatInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // 输入框内容变化时启用/禁用发送按钮
+        chatInput.addEventListener('input', function() {
+            sendButton.disabled = !this.value.trim();
+        });
+
+        // 页面加载完成后的初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            chatInput.focus();
+            sendButton.disabled = true;
+        });
+        
+        // 显示参考来源详情
+        function showSourceDetail(index, source) {
+            const modal = document.getElementById('sourceModal');
+            const modalBody = document.getElementById('sourceModalBody');
+            
+            // 格式化内容显示
+            let content = source.full_content || source.content || '暂无内容';
+            if (content.length > 1000) {
+                content = content.substring(0, 1000) + '...\n\n[内容过长，已截断显示]';
+            }
+            
+            let linkSection = '';
+            if (source.links && source.links.length > 0) {
+                linkSection = `
+                    <div style="margin-bottom: 15px;">
+                        <strong>📄 相关链接:</strong>
+                        <div style="margin-top: 10px;">
+                            ${source.links.map(link => `
+                                <div style="margin-bottom: 10px;">
+                                    <a href="${link.url}" target="_blank" style="display: inline-block; color: white; text-decoration: none; margin: 5px; padding: 8px 12px; background: #6f42c1; border-radius: 6px; font-size: 12px;">
+                                        🔗 ${link.name}
+                                    </a>
+                                    ${link.description ? `<div style="font-size: 11px; color: #666; margin-left: 5px; margin-top: 3px;">${link.description}</div>` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            modalBody.innerHTML = `
+                <div style="margin-bottom: 15px;">
+                    <strong>📋 文档标题:</strong> ${source.title || '未知文档'}
+                </div>
+                ${linkSection}
+                <div style="margin-bottom: 15px;">
+                    <strong>📝 文档内容:</strong>
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 8px; white-space: pre-wrap; font-family: 'Courier New', monospace; max-height: 400px; overflow-y: auto;">
+                        ${content}
+                    </div>
+                </div>
+                <div style="color: #666; font-size: 12px; text-align: center; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+                    💡 提示：点击链接可在新窗口跳转到河南大学官网
+                </div>
+            `;
+            
+            modal.style.display = 'block';
+        }
+        
+        // 关闭参考来源模态框
+        function closeSourceModal() {
+            document.getElementById('sourceModal').style.display = 'none';
+        }
+        
+        // 点击模态框外部关闭
+        window.onclick = function(event) {
+            const modal = document.getElementById('sourceModal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        }
+        
+        // ESC键关闭模态框
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeSourceModal();
+            }
+        });
+    </script>
+</body>
+</html>
