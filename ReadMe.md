@@ -1,12 +1,7 @@
-export const filesData = [
-    {
-        name: 'README.md',
-        description: 'Project overview, technical architecture, setup, and usage guide.',
-        content: `# 河南大学政策问答系统
+# 河南大学政策问答系统
 
 一个基于本地知识库的智能问答系统，采用检索增强生成（RAG）技术，为河南大学师生提供精准、可溯源的政策查询服务。
 
-![河南大学政策问答系统界面](https://r2.flowith.net/files/85b35d1e-d6a4-458b-ab2b-2396aae76f0a/1754543336217-%E5%B1%8F%E5%B9%95%E6%88%AA%E5%9B%BE_2025-08-07_130813@1340x660.png)
 
 ## ✨ 功能特点
 
@@ -346,4 +341,5 @@ if __name__ == "__main__":
     {
         name: 'qa_system_core.py',
         description: 'Core logic for the Q&A system, refactored to use FastEmbedEmbeddings.',
+
         content: `# qa_system_core_refactored.py
